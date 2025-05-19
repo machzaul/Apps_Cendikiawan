@@ -1,7 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String name = '';
+  int quizCount = 0;
+  int friendCount = 0; // Dummy atau bisa diganti
+  int rank = 0;
+  bool isLoading = true;
+
+  Future<void> loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final allUsers = await FirebaseFirestore.instance
+        .collection('users')
+        .orderBy('skor', descending: true)
+        .get();
+
+    final userData = userDoc.data();
+    if (userData != null) {
+      name = userData['name'] ?? '';
+      quizCount = userData['quiz'] ?? 0;
+      friendCount = userData['friend'] ?? 0;
+
+      // Cari posisi user dalam leaderboard
+      final index = allUsers.docs.indexWhere((doc) => doc.id == user.uid);
+      if (index != -1) {
+        rank = index + 1;
+      }
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadUserData();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,18 +58,16 @@ class ProfilePage extends StatelessWidget {
         centerTitle: true,
         title: const Text(
           'SETTING',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
-      body: Padding(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // FOTO & STATISTIK
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -40,35 +85,29 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 24),
-                // STATISTIK VERTIKAL DI KANAN
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ProfileStat(value: '12', label: 'Rank'),
-                      SizedBox(height: 16),
-                      ProfileStat(value: '28', label: 'Quiz'),
-                      SizedBox(height: 16),
-                      ProfileStat(value: '134', label: 'Friend'),
+                      ProfileStat(value: '$rank', label: 'Rank'),
+                      const SizedBox(height: 16),
+                      ProfileStat(value: '$quizCount', label: 'Quiz'),
+                      const SizedBox(height: 16),
+                      ProfileStat(value: '$friendCount', label: 'Friend'),
                     ],
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 40),
-
             const Text(
               "Tentang Saya",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            const Text(
-              "Saya adalah pengguna setia Cendikiawan Quiz. Saya menyukai kuis pengetahuan umum dan terus berusaha memperbaiki peringkat saya setiap hari.",
-              style: TextStyle(fontSize: 14),
+            Text(
+              "Halo, saya $name. Saya pengguna setia Cendikiawan Quiz dan selalu berusaha meningkatkan skor saya!",
+              style: const TextStyle(fontSize: 14),
             ),
           ],
         ),

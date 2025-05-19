@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'ProfilePage.dart';
+import 'LoginPage.dart'; // Ganti sesuai nama file login kamu
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -19,10 +21,21 @@ class _SettingsPageState extends State<SettingsPage> {
     ));
   }
 
+  Future<void> logout() async {
+    await FirebaseAuth.instance.signOut();
+
+    // Arahkan ke login page dan hapus semua halaman sebelumnya
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: false, // biarkan Scaffold atur AppBar & status bar
+      extendBodyBehindAppBar: false,
       appBar: AppBar(
         backgroundColor: Colors.black,
         centerTitle: true,
@@ -55,10 +68,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
+                    const CircleAvatar(
                       radius: 32,
-                      backgroundImage:
-                      const AssetImage('assets/logo/avatar.jpg'),
+                      backgroundImage: AssetImage('assets/logo/avatar.jpg'),
                       backgroundColor: Colors.white,
                     ),
                     const SizedBox(width: 16),
@@ -90,7 +102,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // Extra Settings
+            // Extra Settings (dummy)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
@@ -123,11 +135,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Logged out")),
-                    );
-                  },
+                  onPressed: logout,
                   child: const Text(
                     'LOG OUT',
                     style: TextStyle(fontWeight: FontWeight.bold),
