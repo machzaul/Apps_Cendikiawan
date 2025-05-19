@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1090295420228",
+    "project_id": "tubespam-bdbaf",
+    "storage_bucket": "tubespam-bdbaf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1090295420228:android:c958fd32428db231d23311",
+        "android_client_info": {
+          "package_name": "com.example.todolist_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0T2CjeXhvFzQb_6gH7lwLw3TdaPVmOO4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,18 +1,24 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import 'QuizPage.dart';
 import 'LeaderboardPage.dart';
 import 'SettingsPage.dart';
-import 'CategoryPage.dart'; // Make sure this is imported
-import 'package:flutter/services.dart';
+import 'LoginPage.dart'; // ✅ tambahkan halaman login
 
-void main() {
-  // Set preferred orientations to portrait only
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  // Lock orientation to portrait
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Set status bar color to black
+  // Set status bar color
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.black,
     statusBarIconBrightness: Brightness.light,
@@ -28,6 +34,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Cendikiawan Quiz',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: Colors.black,
         scaffoldBackgroundColor: Colors.white,
@@ -44,8 +51,21 @@ class MyApp extends StatelessWidget {
           elevation: 10,
         ),
       ),
-      debugShowCheckedModeBanner: false,
-      home: const RootPage(),
+      // ⬇️ Gunakan StreamBuilder untuk cek login
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          } else if (snapshot.hasData) {
+            return const RootPage(); // ✅ user sudah login
+          } else {
+            return const LoginPage(); // ❌ belum login
+          }
+        },
+      ),
     );
   }
 }
@@ -108,9 +128,7 @@ class _RootPageState extends State<RootPage> {
               activeIcon: Container(
                 padding: const EdgeInsets.only(top: 12),
                 decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(width: 2, color: Colors.black),
-                  ),
+                  border: Border(top: BorderSide(width: 2, color: Colors.black)),
                 ),
                 child: Image.asset('assets/logo/checklist.png', width: 30, height: 30),
               ),
@@ -121,9 +139,7 @@ class _RootPageState extends State<RootPage> {
               activeIcon: Container(
                 padding: const EdgeInsets.only(top: 12),
                 decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(width: 2, color: Colors.black),
-                  ),
+                  border: Border(top: BorderSide(width: 2, color: Colors.black)),
                 ),
                 child: Image.asset('assets/logo/podium.png', width: 30, height: 30),
               ),
@@ -134,9 +150,7 @@ class _RootPageState extends State<RootPage> {
               activeIcon: Container(
                 padding: const EdgeInsets.only(top: 12),
                 decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(width: 2, color: Colors.black),
-                  ),
+                  border: Border(top: BorderSide(width: 2, color: Colors.black)),
                 ),
                 child: Image.asset('assets/logo/settings1.png', width: 30, height: 30),
               ),
