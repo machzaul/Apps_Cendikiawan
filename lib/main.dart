@@ -14,8 +14,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  uploadQuestions();
-
   // Lock orientation to portrait
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

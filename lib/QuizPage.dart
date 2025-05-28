@@ -464,34 +464,31 @@ class _QuizPageState extends State<QuizPage> {
                       "Single Player",
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 32),
-                    GestureDetector(
-                      onTap: () {
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const MultiPlayerPage(),
+                            builder: (_) => const SinglePlayerPage(),
                           ),
                         );
                       },
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      "Team vs Team",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      child: const Text(
+                        'Start',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ),
                     const SizedBox(height: 40),
                   ],
-                ),
+                )
+              ,
             ],
           ),
         ),
