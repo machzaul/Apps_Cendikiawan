@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'CategoryPage.dart';
 import 'SinglePlayerPage.dart';
 import 'MultiPlayerPage.dart';
+import 'RoomSelectionPage.dart'; // Import halaman room selection yang baru
 
 class QuizPage extends StatefulWidget {
   const QuizPage({super.key});
@@ -183,6 +184,7 @@ class _QuizPageState extends State<QuizPage> {
                           height: 2,
                           width: 40,
                           color: !isTestTab ? Colors.black : Colors.transparent,
+
                         ),
                       ],
                     ),
@@ -438,61 +440,238 @@ class _QuizPageState extends State<QuizPage> {
                   ],
                 )
               else
+              // PVP Tab Content - Updated to show room-based PvP
                 Column(
                   children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SinglePlayerPage(),
-                          ),
-                        );
-                      },
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                    // PvP Header Section
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.purple[400]!, Colors.blue[400]!],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      "Single Player",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.sports_esports,
+                            size: 48,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            "Player vs Player",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Challenge other players in real-time quiz battles!",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SinglePlayerPage(),
+
+                    // Game Modes
+                    Row(
+                      children: [
+                        // Create Room
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const RoomSelectionPage(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.green[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.green[200]!),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.add_circle,
+                                    size: 40,
+                                    color: Colors.green[600],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "Create Room",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green[700],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Start a new game",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green[600],
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
                         ),
+                        const SizedBox(width: 12),
+
+                        // Join Room
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const RoomSelectionPage(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue[200]!),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.login,
+                                    size: 40,
+                                    color: Colors.blue[600],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "Join Room",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Enter room code",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue[600],
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // How to Play Section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
                       ),
-                      child: const Text(
-                        'Start',
-                        style: TextStyle(fontSize: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.grey[700],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "How to Play",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildHowToPlayItem("1", "Create a room or join with room code"),
+                          const SizedBox(height: 8),
+                          _buildHowToPlayItem("2", "Wait for another player to join"),
+                          const SizedBox(height: 8),
+                          _buildHowToPlayItem("3", "Answer questions faster than your opponent"),
+                          const SizedBox(height: 8),
+                          _buildHowToPlayItem("4", "Player with highest score wins!"),
+                        ],
                       ),
                     ),
+
                     const SizedBox(height: 40),
                   ],
-                )
-              ,
+                ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHowToPlayItem(String number, String text) {
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: Colors.blue[100],
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[700],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
