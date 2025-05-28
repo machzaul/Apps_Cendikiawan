@@ -13,10 +13,26 @@ class _CategoryPageState extends State<CategoryPage> {
   int _selectedIndex = 0;
 
   final List<Map<String, String>> categories = const [
-    {"title": "Matematika", "image": "assets/images/math.jpg"},
-    {"title": "Sains", "image": "assets/images/science.jpg"},
-    {"title": "Sejarah", "image": "assets/images/history.jpg"},
-    {"title": "Bahasa Inggris", "image": "assets/images/english.jpg"},
+    {
+      "title": "Matematika",
+      "image": "assets/images/math.jpg",
+      "collection": "matematika_questions"
+    },
+    {
+      "title": "Sains",
+      "image": "assets/images/science.jpg",
+      "collection": "sains_questions"
+    },
+    {
+      "title": "Sejarah",
+      "image": "assets/images/history.jpg",
+      "collection": "sejarah_questions"
+    },
+    {
+      "title": "Bahasa Inggris",
+      "image": "assets/images/english.jpg",
+      "collection": "english_questions"
+    },
   ];
 
   void _onItemTapped(int index) {
@@ -80,7 +96,10 @@ class _CategoryPageState extends State<CategoryPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const QuestionPage(),
+                                builder: (_) => QuestionPage(
+                                  categoryTitle: category['title']!,
+                                  collectionName: category['collection']!, categoryImage: '',
+                                ),
                               ),
                             );
                           },
