@@ -98,7 +98,7 @@ class _CategoryPageState extends State<CategoryPage> {
                               MaterialPageRoute(
                                 builder: (_) => QuestionPage(
                                   categoryTitle: category['title']!,
-                                  collectionName: category['collection']!,
+                                  collectionName: category['collection']!, categoryImage: '',
                                 ),
                               ),
                             );

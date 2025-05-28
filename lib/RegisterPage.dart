@@ -28,7 +28,6 @@ class _RegisterPageState extends State<RegisterPage> {
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'name': usernameController.text.trim(),
         'email': emailController.text.trim(),
-        'level': 1,
         'skor': 0,
         'created_at': Timestamp.now(),
       });

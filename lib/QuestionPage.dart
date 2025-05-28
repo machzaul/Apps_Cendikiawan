@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class QuestionPage extends StatefulWidget {
   final String categoryTitle;
   final String collectionName;
+  final String categoryImage; // Tambahkan parameter image
 
   const QuestionPage({
     super.key,
     required this.categoryTitle,
     required this.collectionName,
+    required this.categoryImage, // Tambahkan required image
   });
 
   @override
@@ -25,10 +28,15 @@ class _QuestionPageState extends State<QuestionPage> {
   Timer? timer;
   int timeLeft = 300; // 5 minutes in seconds
   bool quizCompleted = false;
+  String? currentUserName;
+  String? currentUserId;
+  DateTime? gameStartTime; // Tambahkan untuk tracking waktu mulai
 
   @override
   void initState() {
     super.initState();
+    gameStartTime = DateTime.now(); // Set waktu mulai game
+    _getCurrentUser();
     _loadQuestions();
     _startTimer();
   }
@@ -37,6 +45,35 @@ class _QuestionPageState extends State<QuestionPage> {
   void dispose() {
     timer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _getCurrentUser() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      currentUserId = user.uid;
+
+      // Ambil nama user dari Firestore
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            currentUserName = userDoc.get('name') ?? user.displayName ?? 'Anonymous';
+          });
+        } else {
+          setState(() {
+            currentUserName = user.displayName ?? 'Anonymous';
+          });
+        }
+      } catch (e) {
+        setState(() {
+          currentUserName = user.displayName ?? 'Anonymous';
+        });
+      }
+    }
   }
 
   void _startTimer() {
@@ -116,16 +153,101 @@ class _QuestionPageState extends State<QuestionPage> {
     }
   }
 
-  void _completeQuiz() {
+  Future<void> _saveScoreToFirestore() async {
+    if (currentUserId == null || currentUserName == null) return;
+
+    try {
+      // Ambil skor saat ini dari Firestore
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserId!)
+          .get();
+
+      int currentFirestoreScore = 0;
+      if (userDoc.exists) {
+        currentFirestoreScore = userDoc.get('skor') ?? 0;
+      }
+
+      // Update skor dengan menambahkan skor quiz saat ini
+      int newTotalScore = currentFirestoreScore + score;
+
+      // Simpan atau update data user di Firestore (tanpa category)
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserId!)
+          .set({
+        'name': currentUserName!,
+        'skor': newTotalScore,
+        'lastPlayed': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      print('Score saved successfully: $newTotalScore');
+    } catch (e) {
+      print('Error saving score: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving score: $e')),
+      );
+    }
+  }
+
+  Future<void> _saveGameHistory() async {
+    if (currentUserId == null || currentUserName == null) return;
+
+    try {
+      DateTime gameEndTime = DateTime.now();
+      int gameDuration = gameEndTime.difference(gameStartTime!).inSeconds;
+      int correctAnswers = score ~/ 20;
+      double percentage = (correctAnswers / questions.length) * 100;
+
+      // Simpan history game ke subcollection history di dalam document user
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserId!)
+          .collection('history')
+          .add({
+        'categoryTitle': widget.categoryTitle,
+        'categoryImage': widget.categoryImage,
+        'collectionName': widget.collectionName,
+        'score': score,
+        'totalQuestions': questions.length,
+        'correctAnswers': correctAnswers,
+        'percentage': percentage.round(),
+        'timeSpent': gameDuration, // waktu dalam detik
+        'timeLeft': timeLeft, // sisa waktu ketika selesai
+        'gameStartTime': Timestamp.fromDate(gameStartTime!),
+        'gameEndTime': Timestamp.fromDate(gameEndTime),
+        'completed': quizCompleted, // true jika selesai semua soal, false jika habis waktu
+        'playerName': currentUserName!,
+      });
+
+      print('Game history saved successfully');
+    } catch (e) {
+      print('Error saving game history: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving game history: $e')),
+      );
+    }
+  }
+
+  void _completeQuiz() async {
     timer?.cancel();
     setState(() {
       quizCompleted = true;
     });
 
+    // Simpan skor ke Firestore
+    await _saveScoreToFirestore();
+
+    // Simpan history game
+    await _saveGameHistory();
+
     _showResultDialog();
   }
 
   void _showResultDialog() {
+    int correctAnswers = score ~/ 20;
+    double percentage = (correctAnswers / questions.length) * 100;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -135,9 +257,53 @@ class _QuestionPageState extends State<QuestionPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Tampilkan image kategori di dialog
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  widget.categoryImage,
+                  height: 80,
+                  width: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 80,
+                      width: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        color: Colors.grey,
+                        size: 40,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                widget.categoryTitle,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
               Text('Your Score: $score'),
               Text('Total Questions: ${questions.length}'),
-              Text('Correct Answers: ${score ~/ 20}'),
+              Text('Correct Answers: $correctAnswers'),
+              Text('Percentage: ${percentage.round()}%'),
+              const SizedBox(height: 10),
+              const Text(
+                'Your score has been added to the leaderboard!',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.green,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
           actions: [
@@ -147,6 +313,24 @@ class _QuestionPageState extends State<QuestionPage> {
                 Navigator.of(context).pop(); // Go back to category page
               },
               child: const Text('Back to Categories'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Go back to category page
+                // Navigate to leaderboard page
+                Navigator.pushNamed(context, '/leaderboard');
+              },
+              child: const Text('View Leaderboard'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Go back to category page
+                // Navigate to history page
+                Navigator.pushNamed(context, '/history');
+              },
+              child: const Text('View History'),
             ),
           ],
         );
@@ -162,12 +346,42 @@ class _QuestionPageState extends State<QuestionPage> {
         appBar: AppBar(
           backgroundColor: Colors.black,
           centerTitle: true,
-          title: Text(
-            widget.categoryTitle,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.asset(
+                  widget.categoryImage,
+                  height: 24,
+                  width: 24,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 24,
+                      width: 24,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.quiz,
+                        color: Colors.grey,
+                        size: 16,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.categoryTitle,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -175,7 +389,14 @@ class _QuestionPageState extends State<QuestionPage> {
           ),
         ),
         body: const Center(
-          child: CircularProgressIndicator(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading questions...'),
+            ],
+          ),
         ),
       );
     }
@@ -186,12 +407,42 @@ class _QuestionPageState extends State<QuestionPage> {
         appBar: AppBar(
           backgroundColor: Colors.black,
           centerTitle: true,
-          title: Text(
-            widget.categoryTitle,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.asset(
+                  widget.categoryImage,
+                  height: 24,
+                  width: 24,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 24,
+                      width: 24,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.quiz,
+                        color: Colors.grey,
+                        size: 16,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.categoryTitle,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -211,12 +462,42 @@ class _QuestionPageState extends State<QuestionPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         centerTitle: true,
-        title: Text(
-          widget.categoryTitle,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.asset(
+                widget.categoryImage,
+                height: 24,
+                width: 24,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 24,
+                    width: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.quiz,
+                      color: Colors.grey,
+                      size: 16,
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              widget.categoryTitle,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -229,15 +510,29 @@ class _QuestionPageState extends State<QuestionPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Score & Time Row
+              // User info and Score & Time Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Score: $score',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Player: ${currentUserName ?? 'Loading...'}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          'Score: $score',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Text(

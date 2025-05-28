@@ -96,7 +96,7 @@ class TestYourSkillsPage extends StatelessWidget {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: Colors.green[300],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
