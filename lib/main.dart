@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'upload_questions.dart'; // pastikan path-nya benar
 
 import 'QuizPage.dart';
 import 'LeaderboardPage.dart';
@@ -11,6 +12,8 @@ import 'LoginPage.dart'; // ✅ tambahkan halaman login
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  uploadQuestions();
 
   // Lock orientation to portrait
   SystemChrome.setPreferredOrientations([
