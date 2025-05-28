@@ -11,10 +11,13 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   String name = '';
+  String about = '';
   int quizCount = 0;
-  int friendCount = 0; // Dummy atau bisa diganti
+  int friendCount = 0;
   int rank = 0;
   bool isLoading = true;
+  bool isEditing = false;
+  final TextEditingController _aboutController = TextEditingController();
 
   Future<void> loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -29,18 +32,34 @@ class _ProfilePageState extends State<ProfilePage> {
     final userData = userDoc.data();
     if (userData != null) {
       name = userData['name'] ?? '';
+      about = userData['about'] ?? '';
       quizCount = userData['quiz'] ?? 0;
       friendCount = userData['friend'] ?? 0;
 
-      // Cari posisi user dalam leaderboard
       final index = allUsers.docs.indexWhere((doc) => doc.id == user.uid);
       if (index != -1) {
         rank = index + 1;
       }
+
+      _aboutController.text = about;
     }
 
     setState(() {
       isLoading = false;
+    });
+  }
+
+  Future<void> saveAbout() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      'about': _aboutController.text.trim(),
+    });
+
+    setState(() {
+      about = _aboutController.text.trim();
+      isEditing = false;
     });
   }
 
@@ -60,6 +79,20 @@ class _ProfilePageState extends State<ProfilePage> {
           'SETTING',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(isEditing ? Icons.check : Icons.edit),
+            onPressed: () {
+              if (isEditing) {
+                saveAbout();
+              } else {
+                setState(() {
+                  isEditing = true;
+                });
+              }
+            },
+          )
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -105,8 +138,19 @@ class _ProfilePageState extends State<ProfilePage> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            Text(
-              "Halo, saya $name. Saya pengguna setia Cendikiawan Quiz dan selalu berusaha meningkatkan skor saya!",
+            isEditing
+                ? TextField(
+              controller: _aboutController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: "Tulis deskripsi tentang dirimu...",
+              ),
+            )
+                : Text(
+              about.isNotEmpty
+                  ? about
+                  : "Halo, saya $name. Saya pengguna setia Cendikiawan Quiz dan selalu berusaha meningkatkan skor saya!",
               style: const TextStyle(fontSize: 14),
             ),
           ],
