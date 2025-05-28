@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'QuizPage.dart';
+import 'main.dart'; // Import main.dart untuk mengakses RootPage
 import 'RegisterPage.dart';
 
 class LoginPage extends StatefulWidget {
@@ -28,11 +28,11 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
-      // ✅ Arahkan ke QuizPage jika login berhasil
+      // ✅ Arahkan ke RootPage (dengan bottom navigation) bukan langsung QuizPage
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const QuizPage()),
+        MaterialPageRoute(builder: (context) => const RootPage()),
       );
 
     } on FirebaseAuthException catch (e) {
