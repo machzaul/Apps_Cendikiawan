@@ -133,22 +133,22 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // Dummy Boxes
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                children: List.generate(3, (index) {
-                  return Container(
-                    height: 60,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  );
-                }),
-              ),
-            ),
+            // // Dummy Boxes
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: 32),
+            //   child: Column(
+            //     children: List.generate(3, (index) {
+            //       return Container(
+            //         height: 60,
+            //         margin: const EdgeInsets.only(bottom: 16),
+            //         decoration: BoxDecoration(
+            //           color: Colors.grey[300],
+            //           borderRadius: BorderRadius.circular(12),
+            //         ),
+            //       );
+            //     }),
+            //   ),
+            // ),
 
             const Spacer(),
 
