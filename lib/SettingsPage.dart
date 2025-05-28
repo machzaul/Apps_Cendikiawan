@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'ProfilePage.dart';
-import 'LoginPage.dart'; // Ganti sesuai nama file login kamu
+import 'LoginPage.dart';
+import 'utils/audio_manager.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,6 +13,8 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  double _currentVolume = AudioManager().volume;
+
   @override
   void initState() {
     super.initState();
@@ -19,12 +22,13 @@ class _SettingsPageState extends State<SettingsPage> {
       statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
     ));
+
+    // Jalankan musik jika belum jalan
+    AudioManager().playBackgroundMusic();
   }
 
   Future<void> logout() async {
     await FirebaseAuth.instance.signOut();
-
-    // Arahkan ke login page dan hapus semua halaman sebelumnya
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -102,7 +106,34 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // Extra Settings (dummy)
+            // Pengaturan Volume Musik
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Music Volume",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  Slider(
+                    value: _currentVolume,
+                    min: 0,
+                    max: 1,
+                    divisions: 10,
+                    label: (_currentVolume * 100).toInt().toString(),
+                    onChanged: (value) {
+                      setState(() {
+                        _currentVolume = value;
+                        AudioManager().setVolume(value);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            // Dummy Boxes
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(

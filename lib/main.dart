@@ -7,6 +7,7 @@ import 'QuizPage.dart';
 import 'LeaderboardPage.dart';
 import 'SettingsPage.dart';
 import 'LoginPage.dart'; // ✅ tambahkan halaman login
+import 'utils/audio_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ void main() async {
   ));
 
   runApp(const MyApp());
+  AudioManager().playBackgroundMusic();
 }
 
 class MyApp extends StatelessWidget {
