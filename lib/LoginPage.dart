@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'QuizPage.dart';
 import 'RegisterPage.dart';
 
 class LoginPage extends StatefulWidget {
@@ -27,7 +27,14 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      // ⛔️ Tidak perlu push navigator, StreamBuilder di main akan handle otomatis
+
+      // ✅ Arahkan ke QuizPage jika login berhasil
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const QuizPage()),
+      );
+
     } on FirebaseAuthException catch (e) {
       setState(() {
         _errorMessage = e.message;
