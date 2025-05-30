@@ -66,9 +66,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 20),
                 Image.asset(
-                  'assets/logo.png',
-                  width: 150,
-                  height: 150,
+                  "assets/images/pencil.jpg",
+                  width: 180,
+                  height: 180,
                 ),
                 const SizedBox(height: 30),
                 TextField(
@@ -106,7 +106,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator()
-                      : const Text('Start'),
+                      : const Text('START',style: TextStyle(fontSize: 16,),),
                 ),
                 const SizedBox(height: 20),
                 Row(

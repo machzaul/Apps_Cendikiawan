@@ -66,9 +66,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
                   // Ganti dengan logo asli jika tersedia
                   SizedBox(
-                    width: 120,
-                    height: 120,
-                    child: Image.asset('assets/logo/cendikiawan.png', fit: BoxFit.contain),
+                    width: 200,
+                    height: 200,
+                    child: Image.asset("assets/images/pencil.jpg", fit: BoxFit.contain),
                   ),
 
                   const SizedBox(height: 20),
@@ -130,8 +130,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade300,
-                        foregroundColor: Colors.black,
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         textStyle: const TextStyle(
                           fontWeight: FontWeight.bold,
@@ -141,6 +141,28 @@ class _RegisterPageState extends State<RegisterPage> {
                       onPressed: register,
                       child: const Text("REGISTER"),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Sudah punya akun? "),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LoginPage()),
+                          );
+                        },
+                        child: const Text(
+                          "Login",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
