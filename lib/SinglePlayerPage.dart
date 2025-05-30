@@ -24,11 +24,13 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
   int playerScore = 0;
   bool hasAnswered = false;
   Timer? questionTimer;
-  int timeLeft = 30; // 30 detik per pertanyaan
+  int timeLeft = 10; // 10 detik per pertanyaan
+  bool isWaitingForNextQuestion = false;
 
   @override
   void initState() {
     super.initState();
+    print('SinglePlayerPage initialized with roomId: ${widget.roomId}');
     _getCurrentUser();
     if (widget.roomId != null) {
       _listenToRoom();
@@ -64,40 +66,56 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
         .doc(widget.roomId!)
         .snapshots()
         .listen((snapshot) {
-      if (snapshot.exists && mounted) {
+      if (!mounted) return;
+
+      if (snapshot.exists) {
+        final newRoomData = snapshot.data() as Map<String, dynamic>;
+        final oldRoomData = roomData;
+
         setState(() {
-          roomData = snapshot.data() as Map<String, dynamic>;
+          roomData = newRoomData;
           isLoading = false;
         });
 
         // Start game jika room sudah full dan belum playing
-        if (roomData!['status'] == 'full') {
+        if (newRoomData['status'] == 'full' && oldRoomData?['status'] != 'full') {
           _updateRoomStatus('playing');
-          _startQuestionTimer();
+          setState(() {
+            currentQuestionIndex = 0;
+          });
+          _resetQuestionState();
         }
 
-        // Handle game state changes
-        _handleGameStateChanges();
-      } else if (mounted) {
+        // PERBAIKAN: Perbaiki deteksi perubahan question
+        int newQuestionIndex = newRoomData['currentQuestionIndex'] ?? 0;
+        if (newQuestionIndex != currentQuestionIndex) {
+          print('Question changed from $currentQuestionIndex to $newQuestionIndex');
+          setState(() {
+            currentQuestionIndex = newQuestionIndex;
+          });
+          _resetQuestionState();
+        }
+
+        // Check jika game sudah finished
+        if (newRoomData['status'] == 'finished' && oldRoomData?['status'] != 'finished') {
+          questionTimer?.cancel();
+          _showGameResults();
+        }
+      } else {
         setState(() {
           error = 'Room not found';
           isLoading = false;
         });
       }
+    }, onError: (error) {
+      print('Error listening to room: $error');
+      if (mounted) {
+        setState(() {
+          this.error = 'Connection error: $error';
+          isLoading = false;
+        });
+      }
     });
-  }
-
-  void _handleGameStateChanges() {
-    if (roomData == null) return;
-
-    // Check if both players have answered
-    bool player1Answered = roomData!['player1']?['answered'] ?? false;
-    bool player2Answered = roomData!['player2']?['answered'] ?? false;
-
-    if (player1Answered && player2Answered && !hasAnswered) {
-      // Move to next question or end game
-      _moveToNextQuestion();
-    }
   }
 
   Future<void> _updateRoomStatus(String status) async {
@@ -113,52 +131,103 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
     }
   }
 
-  void _startQuestionTimer() {
+  // PERBAIKAN: Method untuk reset state saat question berubah
+  void _resetQuestionState() {
     questionTimer?.cancel();
     setState(() {
-      timeLeft = 30;
       hasAnswered = false;
+      isWaitingForNextQuestion = false;
+      timeLeft = 10;
+    });
+    _startQuestionTimer();
+  }
+
+  void _startQuestionTimer() {
+    print('Starting question timer for question ${currentQuestionIndex + 1}');
+    questionTimer?.cancel();
+
+    if (!mounted) return;
+
+    setState(() {
+      timeLeft = 10;
+      isWaitingForNextQuestion = false;
     });
 
     questionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          timeLeft--;
-        });
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
 
-        if (timeLeft <= 0) {
-          timer.cancel();
-          if (!hasAnswered) {
-            _answerQuestion(-1); // Auto submit dengan jawaban salah
-          }
+      setState(() {
+        timeLeft--;
+      });
+
+      if (timeLeft <= 0) {
+        timer.cancel();
+        print('Timer ended for question ${currentQuestionIndex + 1}');
+
+        // PERBAIKAN: Pastikan auto submit hanya sekali
+        if (!hasAnswered && !isWaitingForNextQuestion) {
+          print('Auto submitting answer (time up)');
+          _answerQuestion(-1);
+        }
+
+        // PERBAIKAN: Langsung handle question end tanpa menunggu
+        if (!isWaitingForNextQuestion) {
+          _handleQuestionEnd();
         }
       }
     });
   }
 
+  void _handleQuestionEnd() {
+    if (isWaitingForNextQuestion) return;
+
+    print('Handling question end for question ${currentQuestionIndex + 1}');
+    setState(() {
+      isWaitingForNextQuestion = true;
+    });
+
+    // PERBAIKAN: Kurangi delay dan tambahkan fallback
+    Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        print('Moving to next question after delay');
+        _moveToNextQuestion();
+      }
+    });
+  }
+
   Future<void> _answerQuestion(int selectedIndex) async {
-    if (hasAnswered || widget.roomId == null || currentUserId == null) return;
+    if (hasAnswered || widget.roomId == null || currentUserId == null) {
+      print('Cannot answer: hasAnswered=$hasAnswered');
+      return;
+    }
+
+    print('Player answering question ${currentQuestionIndex + 1} with option $selectedIndex');
 
     setState(() {
       hasAnswered = true;
     });
 
+    // PERBAIKAN: Stop timer saat menjawab
     questionTimer?.cancel();
 
     try {
-      // Check if answer is correct
       List questions = roomData!['questions'] ?? [];
-      if (currentQuestionIndex < questions.length) {
+      if (currentQuestionIndex < questions.length && selectedIndex >= -1) {
         int correctAnswer = questions[currentQuestionIndex]['answerIndex'] ?? 0;
-        bool isCorrect = selectedIndex == correctAnswer;
+        bool isCorrect = selectedIndex == correctAnswer && selectedIndex != -1;
 
         if (isCorrect) {
           setState(() {
-            playerScore += 10; // 10 poin per jawaban benar
+            playerScore += 10;
           });
+          print('Correct answer! Score: $playerScore');
+        } else {
+          print('Wrong answer or time up');
         }
 
-        // Update player answer status and score
         String playerKey = _getPlayerKey();
         await FirebaseFirestore.instance
             .collection('multiplayer_rooms')
@@ -166,51 +235,105 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
             .update({
           '$playerKey.answered': true,
           '$playerKey.score': playerScore,
+          '$playerKey.lastAnswerTime': FieldValue.serverTimestamp(),
+          '$playerKey.selectedAnswer': selectedIndex,
         });
+
+        print('Answer submitted to Firebase');
+
+        // PERBAIKAN: Auto move jika sudah menjawab
+        if (!isWaitingForNextQuestion) {
+          _handleQuestionEnd();
+        }
       }
     } catch (e) {
       print('Error answering question: $e');
+      if (mounted) {
+        setState(() {
+          hasAnswered = false;
+        });
+      }
     }
   }
 
   String _getPlayerKey() {
-    if (roomData == null || currentUserId == null) return 'player1';
+    if (roomData == null || currentUserId == null) {
+      print('Cannot get player key: roomData or userId null');
+      return 'player1';
+    }
 
     String? player1Uid = roomData!['player1']?['uid'];
-    return (player1Uid == currentUserId) ? 'player1' : 'player2';
+    String? player2Uid = roomData!['player2']?['uid'];
+
+    print('Current user: $currentUserId');
+    print('Player1 UID: $player1Uid');
+    print('Player2 UID: $player2Uid');
+
+    String playerKey = (player1Uid == currentUserId) ? 'player1' : 'player2';
+    print('Determined player key: $playerKey');
+
+    return playerKey;
   }
 
   Future<void> _moveToNextQuestion() async {
-    if (widget.roomId == null) return;
-
-    await Future.delayed(const Duration(seconds: 2)); // Delay untuk melihat hasil
+    if (widget.roomId == null || isLoading) {
+      print('Cannot move to next question: roomId null or loading');
+      return;
+    }
 
     try {
       List questions = roomData!['questions'] ?? [];
       int nextIndex = currentQuestionIndex + 1;
 
+      print('Current question: ${currentQuestionIndex + 1}/${questions.length}');
+
       if (nextIndex < questions.length) {
-        // Move to next question
-        await FirebaseFirestore.instance
+        String playerKey = _getPlayerKey();
+        print('Player key: $playerKey, moving to question ${nextIndex + 1}');
+
+        // PERBAIKAN: Kedua player bisa update, tapi dengan kondisi
+        DocumentReference roomRef = FirebaseFirestore.instance
             .collection('multiplayer_rooms')
-            .doc(widget.roomId!)
-            .update({
-          'currentQuestionIndex': nextIndex,
-          'player1.answered': false,
-          'player2.answered': false,
-        });
+            .doc(widget.roomId!);
 
-        setState(() {
-          currentQuestionIndex = nextIndex;
-        });
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          DocumentSnapshot roomSnapshot = await transaction.get(roomRef);
 
-        _startQuestionTimer();
+          if (roomSnapshot.exists) {
+            Map<String, dynamic> currentRoomData = roomSnapshot.data() as Map<String, dynamic>;
+            int currentQuestionInDb = currentRoomData['currentQuestionIndex'] ?? 0;
+
+            // Hanya update jika question index masih sama (belum ada yang update)
+            if (currentQuestionInDb == currentQuestionIndex) {
+              transaction.update(roomRef, {
+                'currentQuestionIndex': nextIndex,
+                'player1.answered': false,
+                'player2.answered': false,
+                'questionStartTime': FieldValue.serverTimestamp(),
+              });
+              print('Successfully updated question index to $nextIndex');
+            } else {
+              print('Question already updated by other player');
+            }
+          }
+        });
       } else {
         // Game finished
-        await _endGame();
+        String playerKey = _getPlayerKey();
+        print('Game finished, player key: $playerKey');
+
+        if (playerKey == 'player1') {
+          print('Player1 ending game');
+          await _endGame();
+        }
       }
     } catch (e) {
       print('Error moving to next question: $e');
+      if (mounted) {
+        setState(() {
+          isWaitingForNextQuestion = false;
+        });
+      }
     }
   }
 
@@ -254,7 +377,7 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
         'percentage': percentage.round(),
         'gameType': 'multiplayer',
         'roomId': widget.roomId,
-        'timeSpent': totalQuestions * 30, // Estimasi waktu
+        'timeSpent': totalQuestions * 10, // 10 detik per soal
         'gameEndTime': FieldValue.serverTimestamp(),
         'collectionName': 'multiplayer_room',
         'categoryTitle': 'Multiplayer Quiz',
@@ -443,7 +566,6 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
     String opponentKey = playerKey == 'player1' ? 'player2' : 'player1';
     String opponentName = roomData![opponentKey]?['name'] ?? 'Opponent';
     int opponentScore = roomData![opponentKey]?['score'] ?? 0;
-    bool opponentAnswered = roomData![opponentKey]?['answered'] ?? false;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -457,7 +579,8 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: timeLeft <= 10 ? Colors.red : Colors.blue,
+              color: timeLeft <= 3 ? Colors.red :
+              timeLeft <= 5 ? Colors.orange : Colors.blue,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -550,25 +673,36 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
               child: ListView.builder(
                 itemCount: options.length,
                 itemBuilder: (context, index) {
+                  bool isCorrectAnswer = index == (currentQuestion['answerIndex'] ?? 0);
+                  bool showCorrectAnswer = hasAnswered || timeLeft <= 0;
+
+                  Color buttonColor;
+                  Color textColor;
+
+                  if (showCorrectAnswer) {
+                    if (isCorrectAnswer) {
+                      buttonColor = Colors.green;
+                      textColor = Colors.white;
+                    } else {
+                      buttonColor = Colors.grey[300]!;
+                      textColor = Colors.black;
+                    }
+                  } else {
+                    buttonColor = Colors.blue[50]!;
+                    textColor = Colors.black;
+                  }
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ElevatedButton(
-                      onPressed: hasAnswered ? null : () => _answerQuestion(index),
+                      onPressed: (hasAnswered || timeLeft <= 0) ? null : () => _answerQuestion(index),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        backgroundColor: hasAnswered
-                            ? (index == currentQuestion['answerIndex']
-                            ? Colors.green
-                            : Colors.grey[300])
-                            : Colors.blue[50],
-                        foregroundColor: hasAnswered
-                            ? (index == currentQuestion['answerIndex']
-                            ? Colors.white
-                            : Colors.black)
-                            : Colors.black,
+                        backgroundColor: buttonColor,
+                        foregroundColor: textColor,
                       ),
                       child: Align(
                         alignment: Alignment.centerLeft,
@@ -594,19 +728,35 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    hasAnswered ? Icons.check_circle : Icons.access_time,
-                    color: hasAnswered ? Colors.green : Colors.orange,
+                    isWaitingForNextQuestion
+                        ? Icons.hourglass_empty
+                        : hasAnswered
+                        ? Icons.check_circle
+                        : Icons.access_time,
+                    color: isWaitingForNextQuestion
+                        ? Colors.blue
+                        : hasAnswered
+                        ? Colors.green
+                        : Colors.orange,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    hasAnswered
-                        ? (opponentAnswered
-                        ? 'Both answered! Moving to next...'
-                        : 'Waiting for opponent...')
+                    isWaitingForNextQuestion
+                        ? 'Moving to next question...'
+                        : hasAnswered
+                        ? 'Answer submitted! Wait for next question...'
+                        : timeLeft <= 0
+                        ? 'Time\'s up!'
                         : 'Choose your answer',
                     style: TextStyle(
-                      color: hasAnswered ? Colors.green : Colors.orange,
+                      color: isWaitingForNextQuestion
+                          ? Colors.blue
+                          : hasAnswered
+                          ? Colors.green
+                          : timeLeft <= 0
+                          ? Colors.red
+                          : Colors.orange,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -618,4 +768,4 @@ class _SinglePlayerPageState extends State<SinglePlayerPage> {
       ),
     );
   }
-  }
+}

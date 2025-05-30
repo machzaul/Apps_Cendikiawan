@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LeaderboardPage extends StatefulWidget {
@@ -10,37 +9,6 @@ class LeaderboardPage extends StatefulWidget {
 }
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
-  @override
-  void initState() {
-    super.initState();
-    // Atur status bar menjadi transparan dan ikon gelap
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ));
-  }
-
-  @override
-  void dispose() {
-    // Kembalikan status bar ke default jika perlu
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-    super.dispose();
-  }
-
-  double getItemHeight(int index) {
-    if (index == 0) return 90;
-    if (index == 1) return 75;
-    if (index == 2) return 60;
-    return 50;
-  }
-
-  double getWidthFactor(int index) {
-    if (index == 0) return 1.0;
-    if (index == 1) return 0.87;
-    if (index == 2) return 0.78;
-    return 0.7;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,6 +21,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.black,
+            fontSize: 24,
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
@@ -79,45 +48,103 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             itemCount: leaderboard.length,
             itemBuilder: (context, index) {
               final entry = leaderboard[index].data() as Map<String, dynamic>;
-              final isFirst = index == 0;
-              final height = getItemHeight(index);
-              final widthFactor = getWidthFactor(index);
+              final rank = index + 1;
+              final isTopThree = rank <= 3;
 
-              return Align(
-                alignment: Alignment.center,
-                child: Container(
-                  width: MediaQuery.of(context).size.width * widthFactor,
-                  height: height,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.3),
+                      spreadRadius: 2,
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
                     children: [
-                      isFirst
-                          ? Image.asset('assets/logo/crown1.png', width: 32, height: 32)
-                          : Text(
-                        '${index + 1}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          entry['name'] ?? 'Tanpa Nama',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
+                      // Gradient background for top 3 ranks
+                      if (isTopThree)
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.purple.shade300,
+                                Colors.blue.shade300,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                           ),
                         ),
-                      ),
-                      Text(
-                        entry['skor'].toString(),
-                        style: const TextStyle(fontSize: 16),
+
+                      // Main content
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        color: isTopThree ? null : Colors.white,
+                        child: Row(
+                          children: [
+                            // Rank or crown icon
+                            if (rank == 1)
+                              Image.asset(
+                                'assets/logo/crown1.png',
+                                width: 32,
+                                height: 32,
+                              )
+                            else
+                              Text(
+                                '$rank',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            const SizedBox(width: 16),
+
+                            // Avatar
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundImage: NetworkImage(
+                                entry['photoUrl'] ??
+                                    'https://via.placeholder.com/150',  // Default avatar
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+
+                            // Name and score
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry['name'] ?? 'Tanpa Nama',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Skor: ${entry['skor'].toString()}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
