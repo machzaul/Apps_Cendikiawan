@@ -18,9 +18,10 @@ class _PvPGamePageState extends State<PvPGamePage> {
   String? currentUserId;
   bool isPlayer1 = false;
   Timer? _gameTimer;
-  int timeLeft = 15; // 15 seconds per question
+  int timeLeft = 10; // 10 seconds per question
   bool hasAnswered = false;
   int? selectedAnswer;
+  bool isTimerActive = false;
 
   @override
   void initState() {
@@ -77,11 +78,13 @@ class _PvPGamePageState extends State<PvPGamePage> {
       });
     } else if (status == 'playing') {
       // Game is playing, start timer if not already started
-      if (_gameTimer == null || !_gameTimer!.isActive) {
+      if (!isTimerActive) {
         _startQuestionTimer();
       }
     } else if (status == 'finished') {
       // Game finished, show results
+      _gameTimer?.cancel();
+      isTimerActive = false;
       _showGameResults();
     }
   }
@@ -94,6 +97,9 @@ class _PvPGamePageState extends State<PvPGamePage> {
           .update({
         'status': 'playing',
         'startTime': FieldValue.serverTimestamp(),
+        'currentQuestionIndex': 0,
+        'player1.answered': false,
+        'player2.answered': false,
       });
     } catch (e) {
       print('Error starting game: $e');
@@ -101,10 +107,13 @@ class _PvPGamePageState extends State<PvPGamePage> {
   }
 
   void _startQuestionTimer() {
+    if (isTimerActive) return;
+
     setState(() {
-      timeLeft = 15;
+      timeLeft = 10; // Reset to 10 seconds
       hasAnswered = false;
       selectedAnswer = null;
+      isTimerActive = true;
     });
 
     _gameTimer?.cancel();
@@ -116,14 +125,48 @@ class _PvPGamePageState extends State<PvPGamePage> {
 
         if (timeLeft <= 0) {
           timer.cancel();
+          isTimerActive = false;
+
+          // Submit answer for current player if not answered
           if (!hasAnswered) {
-            _submitAnswer(-1); // Submit no answer
+            _submitTimeoutAnswer();
+          }
+
+          // Only player1 handles the next question logic
+          if (isPlayer1) {
+            _moveToNextQuestion();
           }
         }
       } else {
         timer.cancel();
+        isTimerActive = false;
       }
     });
+  }
+
+  void _submitTimeoutAnswer() async {
+    if (hasAnswered || roomData == null) return;
+
+    setState(() {
+      hasAnswered = true;
+      selectedAnswer = -1; // No answer selected
+    });
+
+    try {
+      String playerKey = isPlayer1 ? 'player1' : 'player2';
+
+      // Update player data - mark as answered but no score increase
+      Map<String, dynamic> updates = {};
+      updates['$playerKey.answered'] = true;
+
+      await FirebaseFirestore.instance
+          .collection('pvp_rooms')
+          .doc(widget.roomCode)
+          .update(updates);
+
+    } catch (e) {
+      print('Error submitting timeout answer: $e');
+    }
   }
 
   void _submitAnswer(int answerIndex) async {
@@ -156,37 +199,27 @@ class _PvPGamePageState extends State<PvPGamePage> {
             .collection('pvp_rooms')
             .doc(widget.roomCode)
             .update(updates);
-
-        // Check if both players answered
-        _checkBothPlayersAnswered();
       }
     } catch (e) {
       print('Error submitting answer: $e');
     }
   }
 
-  void _checkBothPlayersAnswered() async {
+  void _moveToNextQuestion() async {
     if (roomData == null || !isPlayer1) return;
 
-    // Wait a bit to ensure both updates are processed
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Wait a bit to ensure updates are processed
+    await Future.delayed(const Duration(seconds: 1));
 
-    // Get fresh data
-    DocumentSnapshot snapshot = await FirebaseFirestore.instance
-        .collection('pvp_rooms')
-        .doc(widget.roomCode)
-        .get();
+    try {
+      // Get fresh data
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance
+          .collection('pvp_rooms')
+          .doc(widget.roomCode)
+          .get();
 
-    if (snapshot.exists) {
-      Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
-
-      bool player1Answered = data['player1']['answered'] ?? false;
-      bool player2Answered = data['player2']['answered'] ?? false;
-
-      if (player1Answered && player2Answered) {
-        // Both answered, move to next question after 2 seconds
-        await Future.delayed(const Duration(seconds: 2));
-
+      if (snapshot.exists) {
+        Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
         int currentQuestionIndex = data['currentQuestionIndex'];
         List questions = data['questions'];
 
@@ -210,6 +243,62 @@ class _PvPGamePageState extends State<PvPGamePage> {
           });
         }
       }
+    } catch (e) {
+      print('Error moving to next question: $e');
+    }
+  }
+
+  void _updatePlayerScores(int player1Score, int player2Score) async {
+    try {
+      if (roomData == null) return;
+
+      // Get player UIDs
+      String? player1Uid = roomData!['player1']['uid'];
+      String? player2Uid = roomData!['player2']?['uid'];
+
+      // Update player1 score
+      if (player1Uid != null && player1Score > 0) {
+        DocumentSnapshot player1Doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(player1Uid)
+            .get();
+
+        if (player1Doc.exists) {
+          Map<String, dynamic> player1Data = player1Doc.data() as Map<String, dynamic>;
+          int currentScore = player1Data['skor'] ?? 0;
+
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(player1Uid)
+              .update({
+            'skor': currentScore + player1Score,
+          });
+        }
+      }
+
+      // Update player2 score
+      if (player2Uid != null && player2Score > 0) {
+        DocumentSnapshot player2Doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(player2Uid)
+            .get();
+
+        if (player2Doc.exists) {
+          Map<String, dynamic> player2Data = player2Doc.data() as Map<String, dynamic>;
+          int currentScore = player2Data['skor'] ?? 0;
+
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(player2Uid)
+              .update({
+            'skor': currentScore + player2Score,
+          });
+        }
+      }
+
+      print('Skor berhasil diupdate: Player1=$player1Score, Player2=$player2Score');
+    } catch (e) {
+      print('Error updating player scores: $e');
     }
   }
 
@@ -238,6 +327,9 @@ class _PvPGamePageState extends State<PvPGamePage> {
       }
     }
 
+    // Update skor pemain ke akun mereka
+    _updatePlayerScores(player1Score, player2Score);
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -248,6 +340,15 @@ class _PvPGamePageState extends State<PvPGamePage> {
           children: [
             Text('${roomData!['player1']['name']}: $player1Score'),
             Text('${roomData!['player2']['name']}: $player2Score'),
+            const SizedBox(height: 10),
+            const Text(
+              'Skor telah ditambahkan ke akun Anda!',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: Colors.green,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -284,6 +385,9 @@ class _PvPGamePageState extends State<PvPGamePage> {
 
   void _leaveRoom() async {
     try {
+      _gameTimer?.cancel();
+      isTimerActive = false;
+
       if (roomData != null && roomData!['status'] != 'finished') {
         // If game is in progress, end it
         await FirebaseFirestore.instance
@@ -512,7 +616,7 @@ class _PvPGamePageState extends State<PvPGamePage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: timeLeft <= 5 ? Colors.red[100] : Colors.blue[100],
+            color: timeLeft <= 3 ? Colors.red[100] : Colors.blue[100],
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -526,7 +630,7 @@ class _PvPGamePageState extends State<PvPGamePage> {
                 children: [
                   Icon(
                     Icons.timer,
-                    color: timeLeft <= 5 ? Colors.red : Colors.blue,
+                    color: timeLeft <= 3 ? Colors.red : Colors.blue,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -534,7 +638,7 @@ class _PvPGamePageState extends State<PvPGamePage> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: timeLeft <= 5 ? Colors.red : Colors.blue,
+                      color: timeLeft <= 3 ? Colors.red : Colors.blue,
                     ),
                   ),
                 ],
@@ -571,13 +675,13 @@ class _PvPGamePageState extends State<PvPGamePage> {
             itemBuilder: (context, index) {
               bool isSelected = selectedAnswer == index;
               bool isCorrect = index == currentQuestion['answerIndex'];
-              bool showCorrect = hasAnswered && isCorrect;
-              bool showWrong = hasAnswered && isSelected && !isCorrect;
+              bool showCorrect = hasAnswered && timeLeft <= 0 && isCorrect;
+              bool showWrong = hasAnswered && isSelected && !isCorrect && timeLeft <= 0;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ElevatedButton(
-                  onPressed: hasAnswered ? null : () => _submitAnswer(index),
+                  onPressed: hasAnswered || timeLeft <= 0 ? null : () => _submitAnswer(index),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: showCorrect
                         ? Colors.green
